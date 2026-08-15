@@ -10,7 +10,7 @@ namespace Dbarone.Net.Buffers.Thrift;
 /// - https://simonkjohnston.life/thrift-specs/protocol-compact.html
 /// - https://issues.apache.org/jira/browse/THRIFT-110
 /// </summary>
-public class ThriftCompactProtocolCodec
+public class ThriftCompactSerializer
 {
   /// <summary>
   /// Returns the low 4 bits of a byte.

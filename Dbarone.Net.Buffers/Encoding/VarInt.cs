@@ -7,7 +7,8 @@ namespace Dbarone.Net.Buffers;
 /// a maximum length of 9 bytes for 64-bit integers.
 /// This differs from ULEB128 which uses little-endian
 /// byte order.
-/// https://deepwiki.com/go-sqlite/sqlite3/3.2-varint-encoding-and-decoding
+/// Algorithm taken from sqlite3 source:
+/// https://github.com/sqlite/sqlite/blob/master/src/util.c
 /// </summary>
 public struct VarInt
 {
@@ -37,36 +38,27 @@ public struct VarInt
 
     public VarInt(byte[] bytes)
     {
+        Bytes = bytes;
+        int index = 0;
         ulong value = 0;
-        int i = 0;
-
-        // SQLite varints are at most 9 bytes
-        for (; i < 9; i++)
+        byte b;
+        do
         {
-            byte b = bytes[i];
-
-            if (i == 8)
+            if (index == 8)
             {
-                // Special case: 9th byte — store full 8 bits
-                value = (value << 8) | b;
-                i++; // Count the 9th byte
+                // special case for 9-byte - no continuation bit, and exit
+                value = (value << 8) | (ulong)((b = bytes[index]));
+                index++;
                 break;
             }
             else
             {
-                // Append lower 7 bits
-                value = (value << 7) | (ulong)(b & 0x7F);
-
-                // If high bit is 0, this is the last byte
-                if ((b & 0x80) == 0)
-                {
-                    i++;
-                    break;
-                }
+                value = (value << 7) | (ulong)((b = bytes[index]) & (ulong)0x7F);
+                index++;
             }
-        }
+        } while ((b & 0x80) != 0);
 
-        Size = i;
+        Size = index;
         Value = value;
         Bytes = new byte[Size];
         Array.Copy(bytes, 0, Bytes, 0, Size);
@@ -202,36 +194,52 @@ public struct VarInt
 
     private byte[] ULongToByteArray(ulong value)
     {
-        // Special case: 9-byte varint for values >= 2^56
-        // first byte = 0xFF, then the next 8 bytes are
-        // the ulong value in big-endian format.
-        if (value > 0x00FFFFFFFFFFFFFFUL)
+        byte[] bytes = new byte[9];
+
+        // Values < 128 encode in 1 byte
+        if (value <= 0x7F)
         {
-            byte[] result = new byte[9];
-            result[0] = 0xFF; // Marker for 9-byte varint
-            for (int i = 8; i >= 1; i--)
+            bytes[0] = (byte)value;
+            Array.Resize(ref bytes, 1);
+            return bytes;
+        }
+        else
+        {
+            // Special 9‑byte rule
+            if ((value & (((ulong)0xff000000) << 32)) != 0)
             {
-                result[i] = (byte)(value & 0xFF);
+                bytes[8] = (byte)value;
                 value >>= 8;
+
+                for (int i = 7; i >= 0; i--)
+                {
+                    bytes[i] = (byte)((value & 0x7f) | 0x80);
+                    value >>= 7;
+                }
+
+                return bytes;
             }
-            return result;
+            else
+            {
+                // Normal varint path
+                int n = 0;
+
+                do
+                {
+                    bytes[n++] = (byte)((value & 0x7f) | 0x80);
+                    value >>= 7;
+                }
+                while (value != 0);
+
+                bytes[0] &= 0x7f; // Clear continuation bit on first byte
+                Array.Resize(ref bytes, n);   // resize array
+
+                // Reverse into output
+                Array.Reverse(bytes);
+
+                return bytes;
+            }
         }
-
-        // General case: encode in 1–8 bytes
-        List<byte> bytes = new List<byte>();
-        do
-        {
-            bytes.Insert(0, (byte)(value & 0x7F)); // Take 7 bits
-            value >>= 7;
-        } while (value > 0);
-
-        // Set continuation bits for all but last byte
-        for (int i = 0; i < bytes.Count - 1; i++)
-        {
-            bytes[i] |= 0x80;
-        }
-
-        return bytes.ToArray();
     }
 
     #endregion
