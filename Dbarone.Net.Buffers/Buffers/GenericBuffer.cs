@@ -7,8 +7,6 @@ using System.Text;
 /// </summary>
 public class GenericBuffer : IBuffer
 {
-    private BitPackedBuffer bpb = default!;
-
     #region Constructors
 
     /// <summary>
@@ -21,7 +19,6 @@ public class GenericBuffer : IBuffer
         this.buffer = buffer;
         this.Stream = new MemoryStream(buffer);
         this.Resizeable = false;
-        this.bpb = new BitPackedBuffer(this);
     }
 
     /// <summary>
@@ -32,7 +29,6 @@ public class GenericBuffer : IBuffer
         this.buffer = new byte[] { };
         this.Stream = new MemoryStream();
         this.Resizeable = true;
-        this.bpb = new BitPackedBuffer(this);
     }
 
     #endregion
@@ -112,19 +108,18 @@ public class GenericBuffer : IBuffer
         return buffer;
     }
 
-    #region Read methods
-
-    public uint ReadBits(int bitWidth)
+    public IBitPackedBuffer GetBitPackedBuffer(BitOrder bitOrder)
     {
-        return bpb.Read(bitWidth);
+        return new BitPackedBuffer(this, bitOrder);
     }
+
+    #region Read methods
 
     public bool ReadBool()
     {
         var index = (int)this.Stream.Position;
         var result = InternalBuffer[index] != 0;
         this.Position += sizeof(Boolean);
-        bpb.ClearBits();
         return result;
     }
 
@@ -132,7 +127,6 @@ public class GenericBuffer : IBuffer
     {
         var bytes = ReadBytes(4);
         ReverseByteArrayForEndianness(bytes, endianness);
-        bpb.ClearBits();
         return BitConverter.ToInt32(bytes, 0);
     }
 
@@ -140,7 +134,6 @@ public class GenericBuffer : IBuffer
     {
         var bytes = ReadBytes(4);
         ReverseByteArrayForEndianness(bytes, endianness);
-        bpb.ClearBits();
         return BitConverter.ToUInt32(bytes, 0);
     }
 
@@ -148,7 +141,6 @@ public class GenericBuffer : IBuffer
     {
         var bytes = ReadBytes(8);
         ReverseByteArrayForEndianness(bytes, endianness);
-        bpb.ClearBits();
         return BitConverter.ToInt64(bytes, 0);
     }
 
@@ -156,7 +148,6 @@ public class GenericBuffer : IBuffer
     {
         var bytes = ReadBytes(8);
         ReverseByteArrayForEndianness(bytes, endianness);
-        bpb.ClearBits();
         return BitConverter.ToUInt64(bytes, 0);
     }
 
@@ -164,7 +155,6 @@ public class GenericBuffer : IBuffer
     {
         var bytes = ReadBytes(4);
         ReverseByteArrayForEndianness(bytes, endianness);
-        bpb.ClearBits();
         return BitConverter.ToSingle(bytes, 0);
     }
 
@@ -172,7 +162,6 @@ public class GenericBuffer : IBuffer
     {
         var bytes = ReadBytes(8);
         ReverseByteArrayForEndianness(bytes, endianness);
-        bpb.ClearBits();
         return BitConverter.ToDouble(bytes, 0);
     }
 
@@ -182,7 +171,6 @@ public class GenericBuffer : IBuffer
         var bytes = new byte[length];
         Buffer.BlockCopy(InternalBuffer, index, bytes, 0, length);
         this.Position += length;
-        bpb.ClearBits();
         return bytes;
     }
 
@@ -193,14 +181,12 @@ public class GenericBuffer : IBuffer
         var uleb = new ULEB128(slice);
         // set the original buffer position to end of read varint
         this.Position += uleb.Size;
-        bpb.ClearBits();
         return uleb;
     }
 
     public ZigZag ReadZigZag()
     {
         var uleb128 = ReadULEB128();
-        bpb.ClearBits();
         return new ZigZag(uleb128);
     }
 
@@ -240,7 +226,6 @@ public class GenericBuffer : IBuffer
     {
         var bytes = BitConverter.GetBytes(value);
         this.Stream.Write(bytes, 0, bytes.Length);
-        bpb.ClearBits();
         return bytes.Length;
     }
 
@@ -249,7 +234,6 @@ public class GenericBuffer : IBuffer
         var bytes = BitConverter.GetBytes(value);
         ReverseByteArrayForEndianness(bytes, endianness);
         this.Stream.Write(bytes, 0, bytes.Length);
-        bpb.ClearBits();
         return bytes.Length;
     }
 
@@ -258,7 +242,6 @@ public class GenericBuffer : IBuffer
         var bytes = BitConverter.GetBytes(value);
         ReverseByteArrayForEndianness(bytes, endianness);
         this.Stream.Write(bytes, 0, bytes.Length);
-        bpb.ClearBits();
         return bytes.Length;
     }
 
@@ -267,7 +250,6 @@ public class GenericBuffer : IBuffer
         var bytes = BitConverter.GetBytes(value);
         ReverseByteArrayForEndianness(bytes, endianness);
         this.Stream.Write(bytes, 0, bytes.Length);
-        bpb.ClearBits();
         return bytes.Length;
     }
 
@@ -276,7 +258,6 @@ public class GenericBuffer : IBuffer
         var bytes = BitConverter.GetBytes(value);
         ReverseByteArrayForEndianness(bytes, endianness);
         this.Stream.Write(bytes, 0, bytes.Length);
-        bpb.ClearBits();
         return bytes.Length;
     }
 
@@ -285,7 +266,6 @@ public class GenericBuffer : IBuffer
         var bytes = BitConverter.GetBytes(value);
         ReverseByteArrayForEndianness(bytes, endianness);
         this.Stream.Write(bytes, 0, bytes.Length);
-        bpb.ClearBits();
         return bytes.Length;
     }
 
@@ -294,7 +274,6 @@ public class GenericBuffer : IBuffer
         var bytes = BitConverter.GetBytes(value);
         ReverseByteArrayForEndianness(bytes, endianness);
         this.Stream.Write(bytes, 0, bytes.Length);
-        bpb.ClearBits();
         return bytes.Length;
     }
 
@@ -303,19 +282,16 @@ public class GenericBuffer : IBuffer
         //var index = (int)this.Stream.Position;
         //Buffer.BlockCopy(value, 0, this.InternalBuffer, index, value.Length);
         this.Stream.Write(value, 0, value.Length);
-        bpb.ClearBits();
         return value.Length;
     }
 
     public int Write(ULEB128 value)
     {
-        bpb.ClearBits();
         throw new NotImplementedException();
     }
 
     public int Write(ZigZag value)
     {
-        bpb.ClearBits();
         throw new NotImplementedException();
     }
 
@@ -385,4 +361,9 @@ public class GenericBuffer : IBuffer
     }
 
     #endregion Private Methods
+
+    public void Dispose()
+    {
+        this.Stream?.Dispose();
+    }
 }

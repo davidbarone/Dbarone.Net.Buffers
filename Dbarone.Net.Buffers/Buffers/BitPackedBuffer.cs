@@ -5,25 +5,35 @@ using Dbarone.Net.Buffers;
 /// The BitPackedBuffer class allows for reading
 /// and writing of arbitrary numbers of bits in a stream.
 /// </summary>
-public class BitPackedBuffer : IDisposable
+public class BitPackedBuffer : IBitPackedBuffer, IDisposable
 {
   private readonly Stream _stream;
-  private int _bitBuffer;       // Holds bits read from the stream
+  private byte _bitBuffer;       // Holds bits read from the stream
   private int _bitsInBuffer;    // Number of bits currently in the buffer
+  private BitOrder _bitOrder;   // The read/write order of bits within a byte 
 
-  public BitPackedBuffer(IBuffer buffer) : this(buffer.Stream) { }
+  #region #ctor
 
-  public BitPackedBuffer(Stream stream)
+  public BitPackedBuffer(IBuffer buffer, BitOrder bitOrder = BitOrder.MSB) : this(buffer.Stream, bitOrder) { }
+
+  public BitPackedBuffer(Stream stream, BitOrder bitOrder = BitOrder.MSB)
   {
     _stream = stream ?? throw new ArgumentNullException(nameof(stream));
     if (!stream.CanRead)
       throw new ArgumentException("Stream must be readable.", nameof(stream));
+
+    this._bitOrder = bitOrder;
   }
 
+  #endregion
+
+  #region Public Methods
+
   /// <summary>
-  /// Reads an unsigned integer value from the stream using the specified number of bits.
+  /// Reads an unsigned integer value from the stream using
+  /// the specified number of bits.
   /// </summary>
-  public uint Read(int bitWidth)
+  public uint ReadBits(int bitWidth)
   {
     if (bitWidth <= 0 || bitWidth > 32)
       throw new ArgumentOutOfRangeException(nameof(bitWidth), "Bit width must be between 1 and 32.");
@@ -37,11 +47,18 @@ public class BitPackedBuffer : IDisposable
       if (_bitsInBuffer == 0)
       {
         int nextByte = _stream.ReadByte();
+
         if (nextByte == -1)
           throw new EndOfStreamException("Not enough bits in stream.");
 
-        _bitBuffer = nextByte;
+        _bitBuffer = (byte)nextByte;
         _bitsInBuffer = 8;
+
+        // Reverse bit order if LSB:
+        if (this._bitOrder == BitOrder.LSB)
+        {
+          _bitBuffer = ReverseBits(_bitBuffer);
+        }
       }
 
       // Take as many bits as possible from the buffer
@@ -52,7 +69,7 @@ public class BitPackedBuffer : IDisposable
       result = (result << bitsToTake) | (uint)extractedBits;
 
       _bitsInBuffer -= bitsToTake;
-      _bitBuffer &= (1 << _bitsInBuffer) - 1; // Mask remaining bits
+      _bitBuffer &= (byte)((1 << _bitsInBuffer) - 1); // Mask remaining bits
       bitsNeeded -= bitsToTake;
     }
     return result;
@@ -71,4 +88,16 @@ public class BitPackedBuffer : IDisposable
   {
     _stream?.Dispose();
   }
+
+  #endregion
+
+  #region Private Methods
+
+  private byte ReverseBits(byte b)
+  {
+    b = (byte)((b * 0x0202020202 & 0x010884422010) % 1023);
+    return b;
+  }
+
+  #endregion
 }

@@ -3,7 +3,7 @@ namespace Dbarone.Net.Buffers;
 /// <summary>
 /// Describes operations that can be performed on a buffer.
 /// </summary>
-public interface IBuffer
+public interface IBuffer : IDisposable
 {
     /// <summary>
     /// Clears bytes in the buffer
@@ -49,9 +49,15 @@ public interface IBuffer
     /// </summary>
     public long Position { get; set; }
 
+    /// <summary>
+    /// Gets a bit-packed buffer using the current buffer.
+    /// </summary>
+    /// <param name="bitOrder">The order to read bits.</param>
+    /// <returns>Returns a bit-packed buffer based on the current buffer.</returns>
+    public IBitPackedBuffer GetBitPackedBuffer(BitOrder bitOrder);
+
     #region Read methods
 
-    public UInt32 ReadBits(int bitWidth);
     public bool ReadBool();
     public Int32 ReadInt32(Endianness endianness = Endianness.DEFAULT);
     public UInt32 ReadUInt32(Endianness endianness = Endianness.DEFAULT);
