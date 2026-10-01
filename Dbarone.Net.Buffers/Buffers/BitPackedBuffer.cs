@@ -66,6 +66,7 @@ public class BitPackedBuffer : IBitPackedBuffer, IDisposable
       // Take as many bits as possible from the buffer
       if (this._bitOrder == BitOrder.MSB)
       {
+        // MSB
         int bitsToTake = Math.Min(bitsNeeded, _bitsInBuffer);
         int shift = _bitsInBuffer - bitsToTake;
         int extractedBits = (_bitBuffer >> shift) & ((1 << bitsToTake) - 1);
@@ -78,11 +79,12 @@ public class BitPackedBuffer : IBitPackedBuffer, IDisposable
       }
       else
       {
+        // LSB
         int bitsToTake = Math.Min(bitsNeeded, _bitsInBuffer);
         int shift = _bitsInBuffer - bitsToTake;
         int extractedBits = (_bitBuffer) & ((1 << bitsToTake) - 1);
 
-        result = (result << bitsToTake) | (uint)extractedBits;
+        result = (result) | (uint)extractedBits << (bitWidth - bitsNeeded);
 
         _bitsInBuffer -= bitsToTake;
         _bitBuffer = (byte)((_bitBuffer >> bitsToTake) & ((1 << _bitsInBuffer) - 1)); // Mask remaining bits
