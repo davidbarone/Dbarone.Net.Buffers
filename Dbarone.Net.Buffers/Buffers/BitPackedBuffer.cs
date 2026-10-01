@@ -10,7 +10,7 @@ public class BitPackedBuffer : IBitPackedBuffer, IDisposable
   private readonly Stream _stream;
   private byte _bitBuffer;       // Holds bits read from the stream
   private int _bitsInBuffer;    // Number of bits currently in the buffer
-  private BitOrder _bitOrder;   // The read/write order of bits within a byte 
+  private BitOrder _bitOrder;   // The order of bits packed/read within a byte. MSB is usual order.
 
   #region #ctor
 
@@ -54,23 +54,40 @@ public class BitPackedBuffer : IBitPackedBuffer, IDisposable
         _bitBuffer = (byte)nextByte;
         _bitsInBuffer = 8;
 
-        // Reverse bit order if LSB:
-        if (this._bitOrder == BitOrder.LSB)
-        {
-          _bitBuffer = ReverseBits(_bitBuffer);
-        }
+        /*
+                // Reverse bit order if LSB:
+                if (this._bitOrder == BitOrder.LSB)
+                {
+                  _bitBuffer = ReverseBits(_bitBuffer);
+                }
+        */
       }
 
       // Take as many bits as possible from the buffer
-      int bitsToTake = Math.Min(bitsNeeded, _bitsInBuffer);
-      int shift = _bitsInBuffer - bitsToTake;
-      int extractedBits = (_bitBuffer >> shift) & ((1 << bitsToTake) - 1);
+      if (this._bitOrder == BitOrder.MSB)
+      {
+        int bitsToTake = Math.Min(bitsNeeded, _bitsInBuffer);
+        int shift = _bitsInBuffer - bitsToTake;
+        int extractedBits = (_bitBuffer >> shift) & ((1 << bitsToTake) - 1);
 
-      result = (result << bitsToTake) | (uint)extractedBits;
+        result = (result << bitsToTake) | (uint)extractedBits;
 
-      _bitsInBuffer -= bitsToTake;
-      _bitBuffer &= (byte)((1 << _bitsInBuffer) - 1); // Mask remaining bits
-      bitsNeeded -= bitsToTake;
+        _bitsInBuffer -= bitsToTake;
+        _bitBuffer &= (byte)((1 << _bitsInBuffer) - 1); // Mask remaining bits
+        bitsNeeded -= bitsToTake;
+      }
+      else
+      {
+        int bitsToTake = Math.Min(bitsNeeded, _bitsInBuffer);
+        int shift = _bitsInBuffer - bitsToTake;
+        int extractedBits = (_bitBuffer) & ((1 << bitsToTake) - 1);
+
+        result = (result << bitsToTake) | (uint)extractedBits;
+
+        _bitsInBuffer -= bitsToTake;
+        _bitBuffer = (byte)((_bitBuffer >> bitsToTake) & ((1 << _bitsInBuffer) - 1)); // Mask remaining bits
+        bitsNeeded -= bitsToTake;
+      }
     }
     return result;
   }
