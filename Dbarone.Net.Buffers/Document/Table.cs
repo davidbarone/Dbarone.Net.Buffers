@@ -129,7 +129,7 @@ public class Table : IList<TableRow>
             Dictionary<string, object?> dict = new Dictionary<string, object?>();
             foreach (var kvp in row)
             {
-                dict[kvp.Key] = kvp.Value.RawValue;
+                dict[kvp.Key] = kvp.Value.RawValue ?? DBNull.Value;
             }
             yield return dict;
         }

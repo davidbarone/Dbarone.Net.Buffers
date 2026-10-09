@@ -60,7 +60,14 @@ public class TableRow : IDictionary<string, TableCell>, IComparable<TableRow>, I
 
         foreach (var element in dict)
         {
-            this[element.Key] = new TableCell(element.Value);
+            if (element.Value is null)
+            {
+                this[element.Key] = new TableCell();
+            }
+            else
+            {
+                this[element.Key] = new TableCell(element.Value);
+            }
         }
     }
 
